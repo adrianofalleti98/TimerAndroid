@@ -2,6 +2,8 @@ package com.example.timer;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.view.View;
@@ -19,12 +21,13 @@ public class MainActivity extends AppCompatActivity {
     public long duration;
 
     public long durationLeft;
-    public int start_stop;
-    public CountDownTimer timer;
+    public Integer start_stop;
+    public CountDownTimerWithPause timer;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        timer = new CountDownTimerWithPause(duration,1000,timerView,start,seekbar,getApplicationContext());
         timerView = findViewById(R.id.timerView);
         seekbar = findViewById(R.id.seekBar);
         start = findViewById(R.id.start_button);
@@ -35,34 +38,21 @@ public class MainActivity extends AppCompatActivity {
         seekbar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-            System.out.println(seekBar.getProgress());
+                duration = TimeUnit.MINUTES.toMillis(seekbar.getProgress());
+                timer.setDuration(duration);
+                timerView.setText(String.format("%02d : %02d : %02d", TimeUnit.MILLISECONDS.toHours(duration),TimeUnit.MILLISECONDS.toMinutes(duration)-TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(duration)),TimeUnit.MILLISECONDS.toSeconds(duration)-TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(duration))));
             }
 
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {
-            System.out.println(seekBar.getProgress());
+
             }
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
                 duration = TimeUnit.MINUTES.toMillis(seekbar.getProgress());
-                timer = new CountDownTimer(duration,1000){
+                timer = new CountDownTimerWithPause(duration,1000,timerView,start,seekbar,getApplicationContext());
 
-                    @Override
-                    public void onTick(long l) {
-                        durationLeft = l;
-                        String sDuration =  String.format(Locale.ENGLISH,"%02d : %02d : %02d",TimeUnit.MILLISECONDS.toHours(l),TimeUnit.MILLISECONDS.toMinutes(l)-TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(l)),TimeUnit.MILLISECONDS.toSeconds(l)-TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(l)));
-                        timerView.setText(sDuration);
-                    }
-
-                    @Override
-                    public void onFinish() {
-                        //timerView.setVisibility(View.GONE);
-                        Toast.makeText(getApplicationContext(),"Countdown ended",Toast.LENGTH_LONG).show();
-                        seekbar.setEnabled(true);
-                    }
-                };
-                timerView.setText(String.format("%02d : %02d : %02d", TimeUnit.MILLISECONDS.toHours(duration),TimeUnit.MILLISECONDS.toMinutes(duration)-TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(duration)),TimeUnit.MILLISECONDS.toSeconds(duration)-TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(duration))));
             }
         });
 
@@ -71,32 +61,45 @@ public class MainActivity extends AppCompatActivity {
         start.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                seekbar.setEnabled(false);
-                if(start_stop == 0) {
+
+                if(timer.getStart_stop() == 0) {
+                    if (timer.getDuration() == 0){
+                        android.app.AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                        builder.setMessage("Attenzione il timer è settato a 0");
+                        builder.setTitle("ERROR");
+                        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialogInterface, int i) {
+                                seekbar.setProgress(1);
+                                duration = TimeUnit.MINUTES.toMillis(1);
+                                timerView.setText(String.format("%02d : %02d : %02d",
+                                        TimeUnit.MILLISECONDS.toHours(duration),
+                                        TimeUnit.MILLISECONDS.toMinutes(duration)-TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(duration)),
+                                        TimeUnit.MILLISECONDS.toSeconds(duration)-TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(duration))));
+                                timer = new CountDownTimerWithPause(duration,1000,timerView,start,seekbar,getApplicationContext());
+
+
+                            }
+                        }
+                        );
+                        builder.create().show();
+                    }
+                    else {
+                    seekbar.setEnabled(false);
                     timer.start();
                     start.setText("Stop");
                     start_stop = 1;
+                    timer.setStart_stop(start_stop);
+
                 }
-                else if(start_stop == 1)
+                }
+                else if(timer.getStart_stop() == 1)
                 {
                     timer.cancel();
-                    timer = new CountDownTimer(durationLeft,1000) {
-                        @Override
-                        public void onTick(long l) {
-                            durationLeft = l;
-                            String sDuration =  String.format(Locale.ENGLISH,"%02d : %02d : %02d",TimeUnit.MILLISECONDS.toHours(l),TimeUnit.MILLISECONDS.toMinutes(l)-TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(l)),TimeUnit.MILLISECONDS.toSeconds(l)-TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(l)));
-                            timerView.setText(sDuration);
-                        }
-
-                        @Override
-                        public void onFinish() {
-                            Toast.makeText(getApplicationContext(),"Countdown ended",Toast.LENGTH_LONG).show();
-                            seekbar.setEnabled(true);
-                        }
-                    };
-                   start.setText("Start");
-                   start_stop = 0;
-
+                    long dl = timer.getDurationLeft();
+                    timer = new CountDownTimerWithPause(dl,1000,timerView,start,seekbar,getApplicationContext());
+                    //creando un timer da zero, start_stop viene settata a 0, quindi non c'è bisogno di settarla qui a 0, come facciamo nell'altro ramo if in cui la settiamo a uno
+                    start.setText("Start");
                 }
 
             }
@@ -109,6 +112,10 @@ public class MainActivity extends AppCompatActivity {
                 seekbar.setEnabled(true);
                 start.setText("Start");
                 timer.cancel();
+                duration = 0;
+                start_stop = 0;
+                timer.setDuration(duration);
+                timer.setStart_stop(start_stop);
                 timerView.setText("00:00:00");
             }
         });
